@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Runtime / temporary files
+*.log
+*.tmp
+*.temp
+
+# Local analysis output / test data
+*.json
+*.jsonl
+*.txt
+*.pdf
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Local configuration / secrets
+.env
+.env.*

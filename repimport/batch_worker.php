@@ -1,0 +1,16 @@
+<?php
+if (PHP_SAPI !== "cli") exit(1);
+$batchFile=$argv[1]??""; $parser=$argv[2]??""; $root=$argv[3]??""; $lmUrl=$argv[4]??""; $lmModel=$argv[5]??""; $lmTimeout=(int)($argv[6]??300);
+function rw($f){$x=@file_get_contents($f);$d=$x!==false?json_decode($x,true):null;return is_array($d)?$d:null;}
+function ww($f,$d){return @file_put_contents($f,json_encode($d,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX)!==false;}
+function index_file($root){return $root."/batch_index.json";}
+function index_read($root){$f=index_file($root);$x=@file_get_contents($f);$d=$x!==false?json_decode($x,true):null;return is_array($d)?$d:[];}
+function index_write($root,$d){return @file_put_contents(index_file($root),json_encode($d,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX)!==false;}
+function index_update($root,$it){$idx=index_read($root);$fp=$it["fingerprint"]??"";if($fp!==""){$idx[$fp]=array_merge($idx[$fp]??[],["state"=>$it["state"]??"","batch"=>$it["batch"]??"","job"=>$it["job"]??"","source_name"=>$it["source_name"]??"","duration_seconds"=>$it["duration_seconds"]??null,"message"=>$it["message"]??null]);index_write($root,$idx);}}
+$b=rw($batchFile); if(!$b) exit(2); $b["state"]="running"; $b["started_at"]=microtime(true); ww($batchFile,$b);
+foreach(($b["files"]??[]) as $i=>$it){$pdf=$it["pdf"]??"";$jid=$it["job"]??"";$it["batch"]=$b["id"]??"";if($pdf===""||$jid==="")continue;$dir=$root."/job_".$jid;@mkdir($dir,0700,true);$local=$dir."/rechnung.pdf";$log=$dir."/parser.log";$json=$dir."/rechnung_ergebnis.json";$jobFile=$root."/job_".$jid.".json";
+if(!@copy($pdf,$local)){$b["files"][$i]["state"]="error";$b["files"][$i]["message"]="PDF konnte nicht kopiert werden.";ww($batchFile,$b);index_update($root,array_merge($it,$b["files"][$i]));continue;}
+$job=["state"=>"running","pdf"=>$local,"source_name"=>$it["source_name"],"workdir"=>$dir,"log"=>$log,"json"=>$json,"created_at"=>microtime(true),"created"=>time(),"batch"=>$b["id"],"source_pdf"=>$pdf];ww($jobFile,$job);$b["files"][$i]["state"]="running";$b["current"]=$i;ww($batchFile,$b);index_update($root,array_merge($it,$b["files"][$i]));
+$cmd="cd ".escapeshellarg($dir)." && python3 ".escapeshellarg($parser)." ".escapeshellarg($local)." --url ".escapeshellarg($lmUrl)." --model ".escapeshellarg($lmModel)." --timeout ".max(30,min(1800,$lmTimeout))." > ".escapeshellarg($log)." 2>&1";$st=microtime(true);$rc=0;@exec($cmd,$dummy,$rc);$en=microtime(true);$job=rw($jobFile)?:$job;$job["finished_at"]=$en;$job["duration_seconds"]=round($en-$st,1);$b["files"][$i]["duration_seconds"]=$job["duration_seconds"]; $b["files"][$i]["started_at"]=$st; $b["files"][$i]["finished_at"]=$en;
+if($rc===0&&is_file($json)){$job["state"]="done";$b["files"][$i]["state"]="done";$b["files"][$i]["result_ready"]=true;}else{$job["state"]="error";$job["message"]="Parser beendet, aber keine Ergebnisdatei erzeugt.";$b["files"][$i]["state"]="error";$b["files"][$i]["message"]=$job["message"];}ww($jobFile,$job);$b["completed"]=($b["completed"]??0)+1;ww($batchFile,$b);index_update($root,array_merge($it,$b["files"][$i], ["job"=>$jid,"batch"=>$b["id"]]));}
+$b=rw($batchFile)?:$b;if(($b["state"]??"")!=="aborted")$b["state"]="done";$b["current"]=null;$b["finished_at"]=microtime(true);$b["duration_seconds"]=round($b["finished_at"]-$b["started_at"],1);ww($batchFile,$b);

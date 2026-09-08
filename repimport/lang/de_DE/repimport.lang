@@ -1,0 +1,15 @@
+REPImport=REP Rechnungsimport
+REPImportDesc=Import von Rechnungsdaten aus JSON mit REP-Nummerierung
+REPImportMenu=REP Import
+REPImportSetup=Einstellungen
+REPImportUpload=JSON-Rechnung auswählen
+REPImportPreview=Vorschau
+REPImportCreate=Rechnung als Entwurf anlegen
+REPImportNoFile=Bitte eine JSON-Datei auswählen.
+REPImportInvalidJson=Die JSON-Datei konnte nicht gelesen werden.
+REPImportRep=REP-Nummer
+REPImportSupplier=Lieferant
+REPImportInvoiceNumber=Rechnungsnummer
+REPImportInvoiceDate=Rechnungsdatum
+REPImportOrderNumber=Bestellnummer
+REPImportCustomerNumber=Kundennummer
